@@ -6,6 +6,7 @@ from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
+from input import u
 
 ev3 = EV3Brick()
         
@@ -15,6 +16,11 @@ right_motor = Motor(Port.D)
 
 # Initialize the gyro sensor
 gyro_sensor = GyroSensor(Port.S4)
+
+move_speed = 50
+turn_speed = 50
+move_offset = 0
+turn_offset = 0
 
 class Controller:
     
@@ -60,7 +66,38 @@ class Controller:
             wait(10)  
 
         right_motor.brake()
-        left_motor.brake() 
+        left_motor.brake()
+    
+    def execute_instruction(self, instruction):
+        ev3.speaker.beep()
+
+        for ins in instruction:
+            n, action = ins.split(' ')
+            n = int(n)
+
+            if action == "fw":
+                self.go_straight_by_distance(move_speed, n*u*1000)
+            elif action == "fw_d":
+                self.go_straight_by_distance(move_speed, n*u*sqrt(2)*1000)
+            elif action == "bw":
+                self.go_straight_by_distance(-move_speed, n*u*1000)
+            elif action == "bw_d":
+                self.go_straight_by_distance(-move_speed, n*u*sqrt(2)*1000)
+            elif action == "turn_pos_45":
+                self.turn_by_degree(turn_speed, 45)
+            elif action == "turn_neg_45":
+                self.turn_by_degree(-turn_speed, 45)
+            elif action == "turn_pos_90":
+                self.turn_by_degree(turn_speed, 90)
+            elif ins == "turn_neg_90":
+                self.turn_by_degree(-turn_speed, 90)
+            
+            wait(1000)
+        
+        ev3.speaker.beep()
+
+            
+
 
 
 

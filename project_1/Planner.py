@@ -1,5 +1,5 @@
 from input import *
-from math import *
+#from math import round
 from collections import deque
 
 class PathPlanner:
@@ -195,6 +195,25 @@ class PathPlanner:
         
         return path
 
+    def compress_instruction(self, instruction):
+        if len(instruction) == 0:
+            return []
+        compressed = []
+        ins = instruction[0]
+        count = 1
+
+        for i in range(1, len(instruction)):
+            if instruction[i] == ins:
+                count += 1
+            else:
+                compressed.append(str(count) + " " + ins)
+                ins = instruction[i]
+                count = 1
+
+        compressed.append(str(count) + " " + ins)
+
+        return compressed
+
     def get_instruction(self, d="4d"):
         if d == "8d":
             path = self.generate_path_8d()
@@ -213,7 +232,7 @@ class PathPlanner:
             # updating the current orientation of the robot
             curr_dir = self.control[(curr_dir, (r,c))][-1]
         
-        return instruction
+        return self.compress_instruction(instruction)
 
 
 # testing 
