@@ -17,9 +17,11 @@ ev3 = EV3Brick()
 # Write your program here.
 ev3.speaker.beep()
 
+planner = PathPlanner()
+ins = planner.get_instruction("4d")
+planner.print_grid()
+print(ins)
 controller = Controller()
-controller.go_straight_by_distance(50, 500)
-controller.turn_by_degree(50, 90)
 
 
 

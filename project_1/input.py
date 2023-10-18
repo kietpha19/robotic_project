@@ -5,8 +5,8 @@ rows = 10 # number of floor tiles in the workspace's width (y-axis)
 cols = 16 # number of floor tiles in the workspace's length (x-axis)
 u = 0.305 # size of 1 floor tile
 
-start = [0.305, 1.219]  # start location
-goal = [3.658, 1.219]   # goal location
+start = [0.305, 5*u]  # start location
+goal = [3.658, 5*u]   # goal location
 
 obstacle = [ 
     [1*u, 1*u], [2*u, 1*u], [1*u, 2*u], [2*u, 2*u],

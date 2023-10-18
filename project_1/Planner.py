@@ -133,7 +133,7 @@ class PathPlanner:
             distance +=1
 
     # note that: cases when going straight are equal, the diagonal is always found first
-    def generate_path(self):
+    def generate_path_8d(self):
         self.compute_distant_potential()
         path = []
         r, c = self.start
@@ -169,13 +169,43 @@ class PathPlanner:
         # print(path) for debugging
         return path
 
-    def get_instruction(self):
-        path = self.generate_path()
+    def generate_path_4d(self):
+        self.compute_distant_potential()
+        path = []
+        r, c = self.start
+        path.append([r,c])
+        curr_dir = init_orientation
+
+        while [r,c] != self.goal:
+            dir = {'R': [0,1], 'L': [0,-1], 'U': [-1,0], 'D': [1,0]}
+            nr = r + dir[curr_dir][0]
+            nc = c+ dir[curr_dir][1]
+            if self.grid[nr][nc] == self.grid[r][c]-1:
+                path.append([nr, nc])
+                r,c = nr, nc
+            else:
+                for d in dir.keys():
+                    nr = r+dir[d][0]
+                    nc = c+dir[d][1]
+                    if self.grid[nr][nc] == self.grid[r][c]-1:
+                        path.append([nr,nc])
+                        curr_dir = d
+                        r, c = nr, nc
+                        break # break thr for loop
+        
+        return path
+
+    def get_instruction(self, d="4d"):
+        if d == "8d":
+            path = self.generate_path_8d()
+        else:
+            path = self.generate_path_4d()
+            
         curr_dir = init_orientation
         instruction = []
         for i in range(len(path)-1):
             r = path[i+1][0] - path[i][0]
-            c = path[i+1][1] = path[i][1]
+            c = path[i+1][1] - path[i][1]
             # excluding the last element (the updated orientation)
             for action in self.control[(curr_dir, (r,c))][:-1]:
                 instruction.append(action)
