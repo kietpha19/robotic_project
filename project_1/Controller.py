@@ -1,115 +1,68 @@
-from input import curr_dir
-from Planner import PathPlanner
+#!/usr/bin/env pybricks-micropython
+from pybricks.hubs import EV3Brick
+from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
+                                 InfraredSensor, UltrasonicSensor, GyroSensor)
+from pybricks.parameters import Port, Stop, Direction, Button, Color
+from pybricks.tools import wait, StopWatch, DataLog
+from pybricks.robotics import DriveBase
+from pybricks.media.ev3dev import SoundFile, ImageFile
+
+ev3 = EV3Brick()
+        
+# Initialize the motors.
+left_motor = Motor(Port.A)
+right_motor = Motor(Port.D)
+
+# Initialize the gyro sensor
+gyro_sensor = GyroSensor(Port.S4)
 
 class Controller:
-    def __init__(self):
-        move = {
-            "right": (0,1),
-            "left": (0,-1),
-            "up": (-1, 0),
-            "down": (1,0),
-            "up_right": (-1, 1),
-            "up_left": (-1, -1),
-            "down_right": (1, 1),
-            "down_left": (1, -1),
-        }
-        # the last element will be the new orientation
-        self.control = {
-            ("R", move["right"]): ["fw", "R"],
-            ("R", move["left"]): ["bw", "R"],
-            ("R", move["up"]): ["turn_pos_90", "fw", "U"],
-            ("R", move["down"]): ["turn_neg_90", "fw", "D"],
-            ("R", move["up_right"]): ["turn_pos_45", "fw_d", "UR"],
-            ("R", move["up_left"]): ["turn_neg_45", "bw_d", "DR"],
-            ("R", move["down_right"]): ["turn_neg_45", "fw_d", "DR"],
-            ("R", move["down_left"]): ["turn_pos_45", "bw_d", "UR"],
+    
+    # Function to make the robot go straight a certain distance using encoders
+    # utilize propotional algorithm
+    def go_straight_by_distance(self, speed, distance):
+        distance_per_rotation = 185
+        initial_left_position = left_motor.angle()
+        initial_right_position = right_motor.angle()
 
-            ("L", move["right"]): ["bw", "L"],
-            ("L", move["left"]): ["fw", "L"],
-            ("L", move["up"]): ["turn_neg_90", "fw", "U"],
-            ("L", move["down"]): ["turn_pos_90", "fw", "D"],
-            ("L", move["up_right"]): ["turn_pos_45", "bw_d", "DL"],
-            ("L", move["up_left"]): ["turn_neg_45", "fw_d", "UL"],
-            ("L", move["down_right"]): ["turn_neg_45", "bw_d", "UL"],
-            ("L", move["down_left"]): ["turn_pos_45", "fw_d", "DL"],
+        initial_angle = gyro_sensor.angle()
 
-            ("U", move["right"]): ["turn_neg_90", "fw", "R"],
-            ("U", move["left"]): ["turn_pos_90", "fw", "L"],
-            ("U", move["up"]): ["fw", "U"],
-            ("U", move["down"]): ["bw", "U"],
-            ("U", move["up_right"]): ["turn_neg_45", "fw_d", "UR"],
-            ("U", move["up_left"]): ["turn_pos_45", "fw_d", "UL"],
-            ("U", move["down_right"]): ["turn_pos_45", "bw_d", "UL"],
-            ("U", move["down_left"]): ["turn_neg_45", "bw_d", "UR"],
+        while True:
+            # Adjust motor speeds based on gyro sensor reading
+            error = gyro_sensor.angle() - initial_angle
+            correction = error * 1.2  # Adjust the correction factor as needed
 
-            ("D", move["right"]): ["turn_pos_90", "fw", "R"],
-            ("D", move["left"]): ["turn_neg_90", "fw", "L"],
-            ("D", move["up"]): ["bw", "D"],
-            ("D", move["down"]): ["fw", "D"],
-            ("D", move["up_right"]): ["turn_neg_45", "bw_d", "DL"],
-            ("D", move["up_left"]): ["turn_pos_45", "bw_d", "DR"],
-            ("D", move["down_right"]): ["turn_pos_45", "fw_d", "DR"],
-            ("D", move["down_left"]): ["turn_neg_45", "fw_d", "DL"],
+            left_motor.dc(speed - correction)
+            right_motor.dc(speed + correction)
 
-            ("UR", move["right"]): ["turn_neg_45", "fw", "R"],
-            ("UR", move["left"]): ["turn_neg_45", "bw", "R"],
-            ("UR", move["up"]): ["turn_pos_45", "fw", "U"],
-            ("UR", move["down"]): ["turn_pos_45", "bw", "U"],
-            ("UR", move["up_right"]): ["fw_d", "UR"],
-            ("UR", move["up_left"]): ["turn_pos_90", "fw_d", "UL"],
-            ("UR", move["down_right"]): ["turn_neg_90", "fw_d", "DR"],
-            ("UR", move["down_left"]): ["bw_d", "UR"],
-
-            ("UL", move["right"]): ["turn_pos_45", "bw", "L"],
-            ("UL", move["left"]): ["turn_pos_45", "fw", "L"],
-            ("UL", move["up"]): ["turn_neg_45", "fw", "U"],
-            ("UL", move["down"]): ["turn_neg_45", "bw", "U"],
-            ("UL", move["up_right"]): ["turn_neg_90", "fw_d", "UR"],
-            ("UL", move["up_left"]): ["fw_d", "UL"],
-            ("UL", move["down_right"]): ["bw_d", "UL"],
-            ("UL", move["down_left"]): ["turn_pos_90", "fw_d", "DL"],
-
-            ("DR", move["right"]): ["turn_pos_45", "fw", "R"],
-            ("DR", move["left"]): ["turn_pos_45", "bw", "R"],
-            ("DR", move["up"]): ["turn_neg_45", "bw", "D"],
-            ("DR", move["down"]): ["turn_neg_45", "fw", "D"],
-            ("DR", move["up_right"]): ["turn_pos_90", "fw_d", "UR"],
-            ("DR", move["up_left"]): ["bw_d", "DR"],
-            ("DR", move["down_right"]): ["fw_d", "DR"],
-            ("DR", move["down_left"]): ["turn_neg_90", "fw_d", "DL"],
-
-            ("DL", move["right"]): ["turn_neg_45", "bw", "L"],
-            ("DL", move["left"]): ["turn_neg_45", "fw", "L"],
-            ("DL", move["up"]): ["turn_pos_45", "bw", "D"],
-            ("DL", move["down"]): ["turn_pos_45", "fw", "D"],
-            ("DL", move["up_right"]): ["bw_d", "DL"],
-            ("DL", move["up_left"]): ["turn_neg_90", "fw_d", "UL"],
-            ("DL", move["down_right"]): ["turn_pos_90", "fw_d", "DR"],
-            ("DL", move["down_left"]): ["fw_d", "DL"],
-        }
-
-    def get_instruction(self, path, curr_dir):
-        instruction = []
-        for i in range(len(path)-1):
-            r = path[i+1][0] - path[i][0]
-            c = path[i+1][1] = path[i][1]
-            # excluding the last element (the updated orientation)
-            for action in self.control[(curr_dir, (r,c))][:-1]:
-                instruction.append(action)
-            
-            # updating the current orientation of the robot
-            curr_dir = self.control[(curr_dir, (r,c))][-1]
+            left_position = left_motor.angle()
+            right_position = right_motor.angle()
         
-        return instruction
+            left_distance = (left_position - initial_left_position) / 360.0 * distance_per_rotation
+            right_distance = (right_position - initial_right_position) / 360.0 * distance_per_rotation
+        
+            average_distance = (left_distance + right_distance) / 2.0
 
-planner = PathPlanner()
-path = planner.generate_path()
-print(path)
-planner.print_grid()
+            if abs(average_distance) >= abs(distance):
+                break
 
-controller = Controller()
-ins = controller.get_instruction(path, curr_dir)
-print(ins)
+            wait(10)
+
+        # Stop the motors
+        left_motor.stop()
+        right_motor.stop()
+    
+    def turn_by_degree(self, speed, angle):
+        gyro_sensor.reset_angle(0)
+        while abs(gyro_sensor.angle()) < angle:
+            right_motor.run(speed=speed)
+            left_motor.run(speed=(-1 * speed))
+            wait(10)  
+
+        right_motor.brake()
+        left_motor.brake() 
+
+
 
 
 

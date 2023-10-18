@@ -18,5 +18,5 @@ obstacle = [
 #####################################################################
 
 ####### robot configuration #########################################
-curr_dir = 'R' # current orientation of the robot
+init_orientation = 'R' # current orientation of the robot
 
