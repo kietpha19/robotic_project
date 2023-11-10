@@ -1,0 +1,10 @@
+all cases:
+    wander + front + right -> turn left, wall follow
+    wander + front + not right -> turn left, wall follow
+    wandder + not front + right -> wall follow
+    wander + not front + not right -> forward
+
+    wall + front + right -> turn left, wall follow
+    wall + front + not right -> turn right, wander ?? but force forward
+    wall + not front + right -> keep wall follow
+    wall + not front + not right -> wander
