@@ -7,6 +7,7 @@ from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 import random
+import sys
 
 ev3 = EV3Brick()
         
@@ -16,52 +17,68 @@ right_motor = Motor(Port.D)
 fan_motor = Motor(Port.B)
 
 # Initialize the gyro sensor
-light_sensor = ColorSensor(port.S1)
-touch_sensor = TouchSensor(port.S2)
-sonar_sensor = UltrasonicSensor(port.S3)
+light_sensor = ColorSensor(Port.S1)
+touch_sensor = TouchSensor(Port.S2)
+sonar_sensor = UltrasonicSensor(Port.S3)
 gyro_sensor = GyroSensor(Port.S4)
 
-move_speed = 50
+move_speed = 30
 turn_speed = 50
-safe_distance = 500
+light_threshold = 5
+
+# for the wall following
+lower = 80
+upper = 130
+out = 250
 
 class Controller:
     def check(self):
-        fire = False
-        front = False
-        right = False
-        if light_sensor.ambient() > 5:
-            fire = True
-        if touch_sensor.pressed():
-            front = True
-        if sonar_sensor.distance() <= 500:
-            right = True
+        fire = light_sensor.ambient() >= light_threshold
+        front = touch_sensor.pressed()
+        right = sonar_sensor.distance() <= out
         return fire, front, right
     
     def stop(self):
         # Stop the motors
         left_motor.stop()
         right_motor.stop()
+        #wait(100)
 
     def forward(self):
         speed = move_speed
+        gyro_sensor.reset_angle(0)
         initial_angle = gyro_sensor.angle()
         while True:
-            front, right = self.check()
-            if front or right:
-                break
+            fire, front, right = self.check()
+            if fire or front or right:
+                self.stop()
+                return fire, front, right
+                
+            # Adjust motor speeds based on gyro sensor reading
+            error = gyro_sensor.angle() - initial_angle
+            correction = error * 1.2  # Adjust the correction factor as needed
+
+            left_motor.dc(speed - correction)
+            right_motor.dc(speed + correction + 2)
+
+            wait(10)
+    
+    # just backward a little bit
+    def backward(self):
+        speed = -move_speed
+        initial_angle = gyro_sensor.angle()
+        while True:
             # Adjust motor speeds based on gyro sensor reading
             error = gyro_sensor.angle() - initial_angle
             correction = error * 1.2  # Adjust the correction factor as needed
 
             left_motor.dc(speed - correction)
             right_motor.dc(speed + correction)
-
-            wait(10)
-
-        self.stop()
+            if not touch_sensor.pressed():
+                break
             
-    
+        self.stop()
+              
     def turn(self, dir = "left"):
         if dir == "left":
             speed = turn_speed
@@ -74,29 +91,31 @@ class Controller:
             left_motor.run(speed=(-1 * speed))
             wait(10)  
 
-        right_motor.brake()
-        left_motor.brake()
+        self.stop()
 
     def wander(self, action = None):
+        ev3.speaker.say("wander")
+        print("wander")
         if not action:
             action = random.randint(1,3)
         
-        if action == 1:
-            self.forward()
-        elif action == 2:
+        if action == 2:
             self.turn("left")
-        else:
+        elif action == 3:
             self.turn("right")
         
-        fire, front, right = self.check()
+        fire, front, right = self.forward()
+
         if fire:
             self.extinguish()
         elif front and right:
+            self.backward()
             self.turn("left")
             self.follow_wall()
         elif front and not right:
             # self.turn("left")
             # self.follow_wall()
+            self.backward()
             self.turn(right)
             self.wander(1)
         elif not front and right:
@@ -105,46 +124,79 @@ class Controller:
             self.forward()
     
     def follow_wall(self):
+        ev3.speaker.say("wall following")
+        print("follow wall")
+        speed = move_speed
+        initial_angle = gyro_sensor.angle()
         while True:
             distance = sonar_sensor.distance()
-            error = distance - safe_distance
-            proportional_gain = 2  # Adjust as needed
-            motor_speed_difference = proportional_gain * error
+            error = gyro_sensor.angle() - initial_angle
+            correction = error * 1.2  
+            if lower <= distance <= upper:
+                left_motor.dc(speed - correction)
+                right_motor.dc(speed + correction + 2)
+                print("correct")
+            elif distance < lower:
+                left_motor.dc(speed)
+                right_motor.dc(speed+3)
+                print("go out")
+            elif upper < distance < out:
+                left_motor.dc(speed+2)
+                right_motor.dc(speed)
+                print("go in")
+            else:
+                self.stop()
 
-            # Adjust motor speeds to maintain the desired distance
-            motor_left.dc(move_speed + motor_speed_difference)
-            motor_right.dc(move_speed - motor_speed_difference)
+            wait(10)
 
             fire, front, right = self.check()
+            if fire or front or not right:
+                self.stop()
+
             if fire:
                 self.extinguish();
+                #break;
             elif front and right:
+                self.backward()
                 self.turn("left")
+                self.follow_wall()
             elif front and not right:
+                self.backward()
+                self.turn("right")
                 self.wander(1)
             elif not front and not right:
                 self.wander()
 
             wait(10)
-    
+
+    def turn_to_fire(self):
+        speed = turn_speed
+        gyro_sensor.reset_angle(0)
+        detected_ambient = max(light_threshold, light_sensor.ambient())
+        prev_ambient = light_sensor.ambient()
+
+        while abs(gyro_sensor.angle()) < 90:
+            right_motor.run(speed=speed)
+            left_motor.run(speed=(-1 * speed))
+            wait(10)
+            curr_ambient = light_sensor.ambient()
+            print("ambient = ", curr_ambient)
+            if curr_ambient - prev_ambient > 0 and curr_ambient >= detected_ambient:
+                break
+            else:
+                prev_ambient = curr_ambient
+        
+        self.stop()
+
     def extinguish(self):
-        while True:
-            # Read the light intensity from the light sensor
-            light_intensity = light_sensor.ambient()
+        ev3.speaker.say("extinghuish")
+        #self.turn("right")
+        print("extinguish")
+        self.turn_to_fire()
 
-            # Calculate an error based on the difference between the measured light intensity
-            # and the desired light intensity (e.g., the light source intensity)
-            desired_intensity = 5  # Adjust as needed
-            error = desired_intensity - light_intensity
+        sys.exit(0)
+    
 
-            # Calculate the motor speed difference based on the error
-            motor_speed_difference = error
-
-            # Adjust motor speeds for following and maintaining a safe distance
-            motor_left.dc(approach_speed + motor_speed_difference)
-            motor_right.dc(approach_speed - motor_speed_difference)
-
-            wait(10)  # Adjust the delay as needed
 
 
     
