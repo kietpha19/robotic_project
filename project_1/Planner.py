@@ -180,14 +180,14 @@ class PathPlanner:
             dir = {'R': [0,1], 'L': [0,-1], 'U': [-1,0], 'D': [1,0]}
             nr = r + dir[curr_dir][0]
             nc = c+ dir[curr_dir][1]
-            if self.grid[nr][nc] == self.grid[r][c]-1:
+            if 0<=nr<=rows and 0<=nc<=cols and self.grid[nr][nc] == self.grid[r][c]-1:
                 path.append([nr, nc])
                 r,c = nr, nc
             else:
                 for d in dir.keys():
                     nr = r+dir[d][0]
                     nc = c+dir[d][1]
-                    if self.grid[nr][nc] == self.grid[r][c]-1:
+                    if 0<=nr<=rows and 0<=nc<=cols and self.grid[nr][nc] == self.grid[r][c]-1:
                         path.append([nr,nc])
                         curr_dir = d
                         r, c = nr, nc
@@ -237,7 +237,7 @@ class PathPlanner:
 
 # testing 
 # planner = PathPlanner()
-# ins = planner.get_instruction()
+# ins = planner.get_instruction("4d")
 # planner.print_grid()
 # print(ins)
 # print(planner.start)
