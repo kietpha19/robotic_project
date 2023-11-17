@@ -14,28 +14,35 @@ ev3 = EV3Brick()
 # Initialize the motors.
 left_motor = Motor(Port.A)
 right_motor = Motor(Port.D)
-fan_motor = Motor(Port.B)
 
 # Initialize the gyro sensor
-color_sensor = ColorSensor(Port.S1)
-touch_sensor = TouchSensor(Port.S2)
-sonar_sensor = UltrasonicSensor(Port.S3)
-gyro_sensor = GyroSensor(Port.S4)
+light_sensor = ColorSensor(Port.S1)
+left_touch_sensor = TouchSensor(Port.S2)
+sonar_sensor = UltrasonicSensor(Port.S4)
+right_touch_sensor = TouchSensor(Port.S3)
 
-move_speed = 30
+move_speed = 300
 turn_speed = 50
 
 # for the wall following
-lower_wall_dist = 80
-upper_wall_dist = 130
-out_wall_dist = 250
+lower_wall_dist = 35
+upper_wall_dist = 100
+out_wall_dist = 200
+
+state = "wander"
 
 class Controller:
     def check(self):
-        fire = color_sensor.ambient() == Color.Black
-        front = touch_sensor.pressed()
+        fire = light_sensor.color() == Color.YELLOW
+        left_front = left_touch_sensor.pressed()
+        right_front = right_touch_sensor.pressed()
+
         right = sonar_sensor.distance() <= out_wall_dist
-        return fire, front, right
+        # print("fire: ", fire)
+        # print("left front: ", left_front)
+        # print("right front: ", right_front)
+        # print("right: ", right)
+        return fire, left_front, right_front, right
     
     def stop(self):
         # Stop the motors
@@ -45,148 +52,159 @@ class Controller:
 
     def forward(self):
         speed = move_speed
-        gyro_sensor.reset_angle(0)
-        initial_angle = gyro_sensor.angle()
+        
         while True:
-            fire, front, right = self.check()
-            if fire or front or right:
+            fire, left_front, right_front, right = self.check()
+            if fire or left_front or right_front:
                 self.stop()
-                return fire, front, right
-                
-            # Adjust motor speeds based on gyro sensor reading
-            error = gyro_sensor.angle() - initial_angle
-            correction = error * 1.2  # Adjust the correction factor as needed
+                wait(1000)
+                fire, left_front, right_front, right = self.check()
+                return fire, left_front, right_front, right
 
-            left_motor.dc(speed - correction)
-            right_motor.dc(speed + correction + 2)
+            left_motor.run(speed)
+            right_motor.run(speed+2)
 
             wait(10)
     
     # just backward a little bit
     def backward(self):
         speed = -move_speed
-        initial_angle = gyro_sensor.angle()
         while True:
-            # Adjust motor speeds based on gyro sensor reading
-            error = gyro_sensor.angle() - initial_angle
-            correction = error * 1.2  # Adjust the correction factor as needed
-
-            left_motor.dc(speed - correction)
-            right_motor.dc(speed + correction)
-            if not touch_sensor.pressed():
+            left_motor.run(speed)
+            right_motor.run(speed-2)
+            wait(500)
+            if not left_touch_sensor.pressed() and not right_touch_sensor.pressed() :
                 break
             
         self.stop()
               
     def turn(self, dir = "left", angle = 90):
-        if dir == "left":
-            speed = turn_speed
-        else:
-            speed = -turn_speed
-        
-        gyro_sensor.reset_angle(0)
-        while abs(gyro_sensor.angle()) < angle:
-            right_motor.run(speed=speed)
-            left_motor.run(speed=(-1 * speed))
-            wait(10)  
+        if dir == "right":
+            angle = -angle
 
-        self.stop()
+        if angle > 0:
+            right_motor.run_angle(100, (angle*3 - 2)/2, wait = False) # turn left
+            left_motor.run_angle(100, -(angle*3 - 2)/2)
+        elif angle < 0:
+            left_motor.run_angle(100, -(angle*3 + 2)/2, wait = False) # turn right
+            right_motor.run_angle(100, (angle*3 + 2)/2)
+
 
     def wander(self, action = None):
-        ev3.speaker.say("wander")
+        # ev3.speaker.say("wander")
         print("wander")
         if not action:
-            action = random.randint(1,3)
+            action = random.randint(1,2)
         
-        angle = random.randint(45, 90)
         if action == 2:
-            self.turn(dir = "left", angle)
-        elif action == 3:
-            self.turn(dir = "right", angle)
-        
-        fire, front, right = self.forward()
-
-        if fire:
-            self.extinguish()
-        elif front and right:
-            self.backward()
-            self.turn("left")
-            self.follow_wall()
-        elif front and not right:
-            turn = random.randint(1,2)
+            turn = random.randint(1, 4)
             if turn == 1:
-                self.turn(dir = "left", angle)
-            else:
-                self.turn(dir = "right", angle)
-            self.wander(1)
-        elif not front and right:
-            self.follow_wall()
-        else: #not front and not right
-            self.forward()
+                self.turn("left", 45)
+            elif turn == 2:
+                self.turn("right", 45)
+            elif turn == 3:
+                self.turn("left", 90)
+            elif turn == 4:
+                self.turn("right", 90)
+        
+        fire, left_front, right_front, right = self.forward()
+        return fire, left_front, right_front, right
     
     def follow_wall(self):
-        ev3.speaker.say("wall following")
+        # ev3.speaker.say("wall following")
         print("follow wall")
         speed = move_speed
-        initial_angle = gyro_sensor.angle()
         while True:
             distance = sonar_sensor.distance()
-            error = gyro_sensor.angle() - initial_angle
-            correction = error * 1.2  
+
             if lower_wall_dist <= distance <= upper_wall_dist:
-                left_motor.dc(speed - correction)
-                right_motor.dc(speed + correction + 2)
+                left_motor.run(speed)
+                right_motor.run(speed+2)
                 print("correct")
             elif distance < lower_wall_dist:
-                left_motor.dc(speed)
-                right_motor.dc(speed+3)
+                left_motor.run(speed)
+                right_motor.run(speed+10)
                 print("go out")
             elif upper_wall_dist < distance < out_wall_dist:
-                left_motor.dc(speed+2)
-                right_motor.dc(speed)
+                left_motor.run(speed+10)
+                right_motor.run(speed)
                 print("go in")
             else:
                 self.stop()
 
-            wait(10)
-
-            fire, front, right = self.check()
-            if fire or front or not right:
+            fire, left_front, right_front, right = self.check()
+            if fire or left_front or right_front or not right:
                 self.stop()
-
-            if fire:
-                self.extinguish();
-                #break;
-            elif front and right:
-                self.backward()
-                self.turn("left")
-                self.follow_wall()
-            elif front and not right:
-                self.backward()
-                turn = random.randint(1,2)
-                if turn == 1:
-                    self.turn(dir = "left")
-                else:
-                    self.turn(dir = "right")
-                self.wander(1)
-            elif not front and not right:
-                self.wander() # maybe change to turn right later
-
-            wait(10)
+                return fire, left_front, right_front, right
 
     def extinguish(self):
-        ev3.speaker.say("extinguish")
+        self.stop()
         print("extinguish")
-
-        fan_motor.run_time(speed = 300, time = 7000, wait = False)
-        # self.turn("left")
-        # self.turn("right")
+        ev3.speaker.say("fire")
         sys.exit(0)
     
+    def run(self):
+        fire, left_front, right_front, right = self.wander(1)
+        while True:
+            if state == "wander":
+                if fire:
+                    self.extinguish()
+                elif left_front and right_front and right:
+                    self.backward()
+                    self.turn("left")
+                    fire, left_front, right_front, right = self.follow_wall()
+                    state = "wall_following"
+                elif left_front and right_front and not right:
+                    self.backward()
+                    turn = random.randint(1,2)
+                    if turn == 1:
+                        self.turn("left") 
+                        fire, left_front, right_front, right = self.follow_wall()
+                        state = "wall_following"
+                    else:
+                        self.turn("right")
+                        fire, left_front, right_front, right = self.wander(1)
+                elif left_front or right_front:
+                    self.backward()
+                    self.turn("right", 30)
+                    if right:
+                        fire, left_front, right_front, right = self.follow_wall()
+                        state = "wall_following"
+                    else:
+                        fire, left_front, right_front, right = self.wander(1)
+                else: #not front and not right
+                    fire, left_front, right_front, right = self.wander(1)
+            elif state == "wall_following":
+                if fire:
+                    self.extinguish()
+                    #break;
+                elif left_front and right_front and right:
+                    self.backward()
+                    self.turn("left")
+                    fire, left_front, right_front, right = self.follow_wall()
+                elif left_front and right_front and not right:
+                    self.backward()
+                    turn = random.randint(1,2)
+                    if turn == 1:
+                        self.turn("left") # should be random left or right
+                        fire, left_front, right_front, right = self.follow_wall()
+                    else:
+                        self.turn("right")
+                        fire, left_front, right_front, right = self.wander(1)
+                        state = "wander"
+                elif left_front or right_front:
+                    self.backward()
+                    self.turn("left", 30)
+                    if right:
+                        fire, left_front, right_front, right = self.follow_wall()
+                    else:
+                        fire, left_front, right_front, right = self.wander(1)
+                        state = "wander"
+                elif not left_front and not right_front and not right:
+                    fire, left_front, right_front, right = self.wander()
+                    state = "wander"
 
-
-
-    
+            
     
 
             
