@@ -13,8 +13,8 @@ l2 = 15
 joint1 = Motor(Port.D) # the shoulder
 joint2 = Motor(Port.B) # the elbow
 joint3 = Motor(Port.C) # the wrist
-joint1_speed = 40
-joint2_speed = 40
+joint1_speed = 30
+joint2_speed = 30
 
 class ArmController:
 
@@ -51,55 +51,7 @@ class ArmController:
         theta2 = self.rad2deg(theta2)
         return (theta1, theta2)
     
-    def interpolation(self, start, end, stepSize): 
-        pathCoords = []
-        distance = sqrt(pow((end[0]-start[0]),2)+pow((end[1]-start[1]),2))
-        totalSteps= distance/stepSize
-
-        # n is the amount of increments we want 
-        n = 0
-        x,y = -1,-1
-        while (x,y) != end and n < distance:
-            x = start[0] + (n/distance * (end[0] - start[0]))
-            y = start[1] + (n/distance * (end[1]-start[1]))
-            n+=stepSize # How much we want to increase by 
-
-            pathCoords.append((x,y))
-        pathCoords.append((x,y))
-        return pathCoords
-    
-    def get_angle_steps(self, pathCoords):
-        pathAngles = []
-        for x, y in pathCoords:
-            pathAngles.append(self.inv_kinematic(x, y))
-        
-        return pathAngles
-    
-    def draw_line(self, start, end, stepSize):
-        pathCoords = self.interpolation(start, end, stepSize)
-        pathAngles = self.get_angle_steps(pathCoords)
-
-        startAngle = pathAngles[0]
-        joint1_currAngle = startAngle[0]
-        joint2_currAngle = startAngle[1]
-     
-        for joint1_nextAngle, joint2_nextAngle in pathAngles[1:]:
-            theta1 = joint1_nextAngle - joint1_currAngle
-            theta2 = joint2_nextAngle - joint2_currAngle
-
-            # print("theta1 = ", theta1)
-            # print("theta2 = ", theta2)
-
-            self.turn_joint1(theta1)
-            self.turn_joint2(theta2)
-            wait(500)
-            
-            # update current joint angle
-            joint1_currAngle = joint1_nextAngle
-            joint2_currAngle = joint2_nextAngle
-        
-    
-    def draw_path(self, path, stepSize = 0.3):
+    def draw_path(self, path):
         start_x, start_y = path[0]
         theta1, theta2 = self.inv_kinematic(start_x, start_y)
 
@@ -107,11 +59,30 @@ class ArmController:
         self.turn_joint1(theta1)
         self.turn_joint2(theta2)
         self.pen("down")
-        wait(1000)
-
-        for i in range(len(path)-1):
+        wait(500)
+        i = 1
+        for x, y in path:
             print("line: ", i)
-            self.draw_line(path[i], path[i+1], stepSize)
-            
-        
+            i+=1
+            next_theta1, next_theta2 = self.inv_kinematic(x, y)
+
+            self.turn_joint2(next_theta2 - theta2, wait = False)
+            self.turn_joint1(next_theta1 - theta1)
+
+            theta1 = next_theta1
+            theta2 = next_theta2
+
+            wait(1500)
+    
         self.pen("up")
+        
+            
+
+
+
+       
+
+
+
+
+
