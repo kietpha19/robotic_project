@@ -20,8 +20,10 @@ ev3 = EV3Brick()
 # Write your program here.
 ev3.speaker.beep()
 
-start = (1,7)
+start = (1,10)
 end = (8,15)
 
+path = [(1,12), (7,17), (12,14), (1,12)]
+
 controller = ArmController()
-controller.draw_line(start, end, 0.3)
+controller.draw_path(path)

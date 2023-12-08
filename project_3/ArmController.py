@@ -10,12 +10,12 @@ import threading
 
 # arm configuration
 l1 = 7
-l2 = 11
+l2 = 15
 joint1 = Motor(Port.D) # the shoulder
 joint2 = Motor(Port.B) # the elbow
 joint3 = Motor(Port.C) # the wrist
-joint1_speed = 30
-joint2_speed = 30
+joint1_speed = 40
+joint2_speed = 40
 
 class ArmController:
 
@@ -83,19 +83,13 @@ class ArmController:
         startAngle = pathAngles[0]
         joint1_currAngle = startAngle[0]
         joint2_currAngle = startAngle[1]
-
-        # go to the initial position
-        self.turn_joint1(joint1_currAngle)
-        self.turn_joint2(joint2_currAngle)
-        self.pen()
-        wait(3000) #to adjust pen if needed
      
         for joint1_nextAngle, joint2_nextAngle in pathAngles[1:]:
             theta1 = joint1_nextAngle - joint1_currAngle
             theta2 = joint2_nextAngle - joint2_currAngle
 
-            print("theta1 = ", theta1)
-            print("theta2 = ", theta2)
+            # print("theta1 = ", theta1)
+            # print("theta2 = ", theta2)
 
             self.turn_joint1(theta1)
             self.turn_joint2(theta2)
@@ -105,7 +99,25 @@ class ArmController:
             joint1_currAngle = joint1_nextAngle
             joint2_currAngle = joint2_nextAngle
         
+    
+    def draw_path(self, path, stepSize = 0.3):
+        start_x, start_y = path[0]
+        theta1, theta2 = self.inv_kinematic(start_x, start_y)
+
+        # go to the initial position and pen down
+        self.turn_joint1(theta1)
+        self.turn_joint2(theta2)
+        self.pen("down")
+        wait(1000)
+
+        for i in range(len(path)-1):
+            self.draw_line(path[i], path[i+1], stepSize)
+            print("line: ", i)
+        
         self.pen("up")
+        
+            
+
 
 
        
