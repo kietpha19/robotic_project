@@ -14,10 +14,16 @@ l2 = 11
 joint1 = Motor(Port.D) # the shoulder
 joint2 = Motor(Port.B) # the elbow
 joint3 = Motor(Port.C) # the wrist
-joint1_speed = 10
+joint1_speed = 30
 joint2_speed = 30
 
 class ArmController:
+
+    def pen(self, action = "down"):
+        if action == "down":
+            joint3.run_angle(50, 20)
+        else:
+            joint3.run_angle(50, -20)
 
     def rad2deg(self, theta):
         return theta*(180/pi)
@@ -77,28 +83,29 @@ class ArmController:
         startAngle = pathAngles[0]
         joint1_currAngle = startAngle[0]
         joint2_currAngle = startAngle[1]
+
+        # go to the initial position
+        self.turn_joint1(joint1_currAngle)
+        self.turn_joint2(joint2_currAngle)
+        self.pen()
+        wait(3000) #to adjust pen if needed
      
         for joint1_nextAngle, joint2_nextAngle in pathAngles[1:]:
             theta1 = joint1_nextAngle - joint1_currAngle
             theta2 = joint2_nextAngle - joint2_currAngle
+
             print("theta1 = ", theta1)
             print("theta2 = ", theta2)
 
-            # Create two threads
-            thread1 = threading.Thread(target=self.turn_joint1, arg = [theta1])
-            thread2 = threading.Thread(target=self.turn_joint2, arg = [theta2])
-
-            # Start the threads
-            thread1.start()
-            thread2.start()
-
-            # Wait for both threads to finish
-            thread1.join()
-            thread2.join()
-
+            self.turn_joint1(theta1)
+            self.turn_joint2(theta2)
+            wait(500)
+            
             # update current joint angle
             joint1_currAngle = joint1_nextAngle
             joint2_currAngle = joint2_nextAngle
+        
+        self.pen("up")
 
 
        
